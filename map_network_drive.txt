@@ -1,0 +1,10 @@
+--add subscription script has to be run after the distribution and publication is set
+
+
+EXEC sp_addsubscription 
+@publication = BHNPRD_publication, 
+@subscriber = 'KMLDBS35', 
+@destination_db = BHNPRD_staging,
+@sync_type = 'initialize with backup',
+@backupdevicetype ='disk',
+@backupdevicename = 'x:\BHNPRD_full.bak'

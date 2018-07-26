@@ -1,0 +1,34 @@
+DECLARE       @servicename       VARCHAR(100)
+set @servicename = (select @@servicename)
+DECLARE       @instancename       VARCHAR(100),
+@MSX INT, @regkey VARCHAR(255)
+EXEC   master..xp_instance_regread
+
+       @rootkey = N'HKEY_LOCAL_MACHINE',
+
+       @key     = N'SOFTWARE\\Microsoft\\Microsoft SQL Server\\Instance Names\\SQL',
+
+       @value_name   = @servicename,
+
+       @value        = @instancename OUTPUT
+
+set @regkey =  N'SOFTWARE\Microsoft\Microsoft SQL Server\' + @instancename + '\SQLServerAgent'
+
+EXEC master..xp_regread
+	@rootkey = N'HKEY_LOCAL_MACHINE',
+	@key = @regkey,
+	@value_name = N'MsxEncryptChannelOptions',
+	@value = @MSX OUTPUT
+
+IF @MSX = 2
+BEGIN
+EXEC master..xp_regwrite
+	@rootkey = N'HKEY_LOCAL_MACHINE',
+	@key = @regkey,
+	@value_name = N'MsxEncryptChannelOptions',
+	@type = REG_DWORD,
+	@value = 0;
+	SELECT 'reg changed to 0'
+END
+ELSE
+select 'no reg changed'

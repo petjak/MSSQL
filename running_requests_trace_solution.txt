@@ -1,0 +1,249 @@
+use MaintenanceDB
+CREATE TABLE dbo.Running_requests (
+server_name nvarchar(30),
+session_id	smallint,
+batch_text nvarchar(MAX),
+statement_text nvarchar(MAX),
+XML_plan XML,
+request_id	int,
+start_time	datetime,
+status	nvarchar(30),
+command	nvarchar(32),
+sql_handle	varbinary(64),
+statement_start_offset	int,
+statement_end_offset	int,
+plan_handle	varbinary(64),
+database_id	smallint,
+user_id	int,
+connection_id	uniqueidentifier,
+blocking_session_id	smallint,
+wait_type	nvarchar(60),
+wait_time	int,
+last_wait_type	nvarchar(60),
+wait_resource	nvarchar(256),
+open_transaction_count	int,
+open_resultset_count	int,
+transaction_id	bigint,
+context_info	varbinary(128),
+percent_complete	real,
+estimated_completion_time	bigint,
+cpu_time	int,
+total_elapsed_time	int,
+scheduler_id	int,
+task_address	varbinary(8),
+reads	bigint,
+writes	bigint,
+logical_reads	bigint,
+text_size	int,
+language	nvarchar(128),
+date_format	nvarchar(3),
+concat_null_yields_null	bit,
+transaction_isolation_level	smallint,
+lock_timeout	int,
+deadlock_priority	int,
+row_count	bigint,
+prev_error	int,
+nest_level	int,
+granted_query_memory	int,
+query_hash	binary(8),
+query_plan_hash	binary(8))
+
+-----------------------------------------------------------------------------------
+--JOB
+-----------------------------------------------------------------------------------
+USE [msdb]
+GO
+
+/****** Object:  Job [running_requests_collector]    Script Date: 30.09.2016 08:34:33 ******/
+BEGIN TRANSACTION
+DECLARE @ReturnCode INT
+SELECT @ReturnCode = 0
+/****** Object:  JobCategory [Data Collector]    Script Date: 30.09.2016 08:34:33 ******/
+IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'Data Collector' AND category_class=1)
+BEGIN
+EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', @name=N'Data Collector'
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+
+END
+
+DECLARE @jobId BINARY(16)
+EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'running_requests_collector', 
+		@enabled=1, 
+		@notify_level_eventlog=0, 
+		@notify_level_email=0, 
+		@notify_level_netsend=0, 
+		@notify_level_page=0, 
+		@delete_level=0, 
+		@description=N'No description available.', 
+		@category_name=N'Data Collector', 
+		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+/****** Object:  Step [running_request_collection]    Script Date: 30.09.2016 08:34:34 ******/
+EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'running_request_collection', 
+		@step_id=1, 
+		@cmdexec_success_code=0, 
+		@on_success_action=1, 
+		@on_success_step_id=0, 
+		@on_fail_action=2, 
+		@on_fail_step_id=0, 
+		@retry_attempts=0, 
+		@retry_interval=0, 
+		@os_run_priority=0, @subsystem=N'TSQL', 
+		@command=N'INSERT INTO [MaintenanceDB].dbo.Running_requests
+SELECT 
+	@@SERVERNAME	
+	,r.session_id
+	,st.text AS batch_text
+	,SUBSTRING(st.text, statement_start_offset / 2 + 1, (
+			(
+				CASE 
+					WHEN r.statement_end_offset = - 1
+						THEN (LEN(CONVERT(NVARCHAR(max), st.TEXT)) * 2)
+					ELSE r.statement_end_offset
+					END
+				) - r.statement_start_offset
+			) / 2 + 1) AS statement_text
+	,qp.query_plan AS ''XML Plan'',
+r.request_id,
+r.start_time,
+r.status,
+r.command,
+r.sql_handle,
+r.statement_start_offset,
+r.statement_end_offset,
+r.plan_handle,
+r.database_id,
+r.user_id,
+r.connection_id,
+r.blocking_session_id,
+r.wait_type,
+r.wait_time,
+r.last_wait_type,
+r.wait_resource,
+r.open_transaction_count,
+r.open_resultset_count,
+r.transaction_id,
+r.context_info,
+r.percent_complete,
+r.estimated_completion_time,
+r.cpu_time,
+r.total_elapsed_time,
+r.scheduler_id,
+r.task_address,
+r.reads,
+r.writes,
+r.logical_reads,
+r.text_size,
+r.language,
+r.date_format,
+r.concat_null_yields_null,
+r.transaction_isolation_level,
+r.lock_timeout,
+r.deadlock_priority,
+r.row_count,
+r.prev_error,
+r.nest_level,
+r.granted_query_memory,
+r.query_hash,
+r.query_plan_hash
+FROM sys.dm_exec_requests r
+CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS st
+CROSS APPLY sys.dm_exec_query_plan(r.plan_handle) AS qp
+where r.database_id = 5 and r.session_id > 50 and r.session_id != @@SPID
+ORDER BY cpu_time DESC', 
+		@database_name=N'master', 
+		@flags=0
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+EXEC @ReturnCode = msdb.dbo.sp_add_jobschedule @job_id=@jobId, @name=N'every_10s', 
+		@enabled=1, 
+		@freq_type=4, 
+		@freq_interval=1, 
+		@freq_subday_type=8, 
+		@freq_subday_interval=10, 
+		@freq_relative_interval=0, 
+		@freq_recurrence_factor=0, 
+		@active_start_date=20160930, 
+		@active_end_date=99991231, 
+		@active_start_time=0, 
+		@active_end_time=235959, 
+		@schedule_uid=N'6816b9e3-8dbf-45d7-b4f7-e0b1442a3fb8'
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)'
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+COMMIT TRANSACTION
+GOTO EndSave
+QuitWithRollback:
+    IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION
+EndSave:
+
+GO
+
+
+--------------------------------------------------------------------------------
+--INSERT
+-------------------------------------------------------------------------------
+/*
+INSERT INTO [MaintenanceDB].dbo.Running_requests
+SELECT 
+	r.session_id
+	,st.text AS batch_text
+	,SUBSTRING(st.text, statement_start_offset / 2 + 1, (
+			(
+				CASE 
+					WHEN r.statement_end_offset = - 1
+						THEN (LEN(CONVERT(NVARCHAR(max), st.TEXT)) * 2)
+					ELSE r.statement_end_offset
+					END
+				) - r.statement_start_offset
+			) / 2 + 1) AS statement_text
+	,qp.query_plan AS 'XML Plan',
+r.request_id,
+r.start_time,
+r.status,
+r.command,
+r.sql_handle,
+r.statement_start_offset,
+r.statement_end_offset,
+r.plan_handle,
+r.database_id,
+r.user_id,
+r.connection_id,
+r.blocking_session_id,
+r.wait_type,
+r.wait_time,
+r.last_wait_type,
+r.wait_resource,
+r.open_transaction_count,
+r.open_resultset_count,
+r.transaction_id,
+r.context_info,
+r.percent_complete,
+r.estimated_completion_time,
+r.cpu_time,
+r.total_elapsed_time,
+r.scheduler_id,
+r.task_address,
+r.reads,
+r.writes,
+r.logical_reads,
+r.text_size,
+r.language,
+r.date_format,
+r.concat_null_yields_null,
+r.transaction_isolation_level,
+r.lock_timeout,
+r.deadlock_priority,
+r.row_count,
+r.prev_error,
+r.nest_level,
+r.granted_query_memory,
+r.query_hash,
+r.query_plan_hash
+FROM sys.dm_exec_requests r
+CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS st
+CROSS APPLY sys.dm_exec_query_plan(r.plan_handle) AS qp
+where r.database_id = 5 and r.session_id > 50 and r.session_id != @@SPID
+ORDER BY cpu_time DESC
+*/

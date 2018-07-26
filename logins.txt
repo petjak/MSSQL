@@ -1,0 +1,18 @@
+select 'login' = CASE
+when (select name from master.dbo.syslogins where name = 'NT SERVICE\SQLSERVERAGENT') is not null then (select name from master.dbo.syslogins where name = 'NT SERVICE\SQLSERVERAGENT')
+when (select name from master.dbo.syslogins where name like 'NT SERVICE\SQLAgent%') is not null then (select name from master.dbo.syslogins where name like 'NT SERVICE\SQLAgent%')
+ELSE 'NOT Exists'
+END
+
+
+---------------------------------------------------------
+create login, user, alter role
+
+
+DECLARE @Domain varchar(100), @key varchar(100)
+
+SET @key = 'SYSTEM\ControlSet001\Services\Tcpip\Parameters\'
+EXEC master..xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@key,@value_name='Domain',@value=@Domain OUTPUT
+SELECT 'CREATE LOGIN [' + LEFT(convert(varchar(100),@Domain),(CHARINDEX('.', convert(varchar(100),@Domain)))-1) + '\' + CAST(SERVERPROPERTY('MachineName') AS VARCHAR(50)) + '$] FROM WINDOWS WITH DEFAULT_DATABASE=[msdb], DEFAULT_LANGUAGE=[us_english];',
+'CREATE USER [' + LEFT(convert(varchar(100),@Domain),(CHARINDEX('.', convert(varchar(100),@Domain)))-1) + '\' + CAST(SERVERPROPERTY('MachineName') AS VARCHAR(50)) + '$]' + ' FOR LOGIN [' + LEFT(convert(varchar(100),@Domain),(CHARINDEX('.', convert(varchar(100),@Domain)))-1) + '\' + CAST(SERVERPROPERTY('MachineName') AS VARCHAR(50)) + '$]' + ' WITH DEFAULT_SCHEMA=[dbo];',
+'ALTER ROLE TargetServersRole ADD MEMBER [' + LEFT(convert(varchar(100),@Domain),(CHARINDEX('.', convert(varchar(100),@Domain)))-1) + '\' + CAST(SERVERPROPERTY('MachineName') AS VARCHAR(50)) + '$];'

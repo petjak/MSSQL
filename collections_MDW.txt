@@ -1,0 +1,12 @@
+/****** Script for SelectTopNRows command from SSMS  ******/
+SELECT TOP 1000 [database_name]
+      ,lu.[log_size_mb]
+      ,lu.[log_space_used]
+      ,lu.[status]
+      ,lu.[collection_time]
+      ,lu.[snapshot_id]
+  FROM [MDW].[snapshots].[log_usage] as lu
+  LEFT JOIN [MDW].[core].[snapshots_internal] as si
+  ON lu.snapshot_id = si.snapshot_id
+  where si.source_id between 4 and 6 AND lu.database_name like 'tempdb'
+  order by lu.collection_time desc

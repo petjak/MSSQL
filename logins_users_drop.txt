@@ -1,0 +1,32 @@
+--- Drop logins and users in a single batch
+	 
+	USE master
+
+	GO
+
+	 
+
+	DROP LOGIN KillDaOtterUser
+	 
+
+	EXEC sp_msforeachdb 'USE ?; IF EXISTS(SELECT * FROM sys.database_principals WHERE name = ''KillDaOtterUser'')
+
+	DROP USER KillDaOtterUser'
+
+
+
+----- drop orphaned logins and users (logins not in AD)
+
+CREATE TABLE #dropped_windows_logins
+  (
+     [sid]  VARBINARY(85),
+     [name] SYSNAME
+  )
+ 
+INSERT #dropped_windows_logins
+EXEC sys.Sp_validatelogins
+ 
+SELECT 'DROP LOGIN [' + name + '];', 'EXEC sp_msforeachdb ''USE ?; IF EXISTS(SELECT * FROM sys.database_principals WHERE name = ''''[' + name + ']'''') DROP USER [' + name + ']'''
+FROM   #dropped_windows_logins
+ 
+DROP TABLE #dropped_windows_logins 

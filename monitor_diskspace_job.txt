@@ -1,0 +1,158 @@
+DECLARE @bodytext as nvarchar(max)
+DECLARE @q1 INT
+DECLARE @q2 INT
+DECLARE @lastdate nvarchar (50)
+DECLARE @message nvarchar (50)
+
+SELECT DISTINCT dovs.logical_volume_name AS LogicalName,
+dovs.volume_mount_point AS Drive,
+CONVERT(INT,dovs.available_bytes/1048576.0) AS FreeSpaceInMB
+INTO ##freespace
+FROM sys.master_files mf
+CROSS APPLY sys.dm_os_volume_stats(mf.database_id, mf.FILE_ID) dovs
+--select * from ##freespace where FreeSpaceInMB < 10240
+--select * from dbo.sysmail_sentitems order by sent_date desc
+
+SET @q1 = (select COUNT(*) from ##freespace where FreeSpaceInMB < 10240 and Drive != 'E:\')
+SET @bodytext = (select 'body'=Case when @q1 > 1 THEN 'More than one drive reached the limit of free space left, see attached file'
+WHEN (select COUNT(*) from ##freespace where FreeSpaceInMB < 10240 and Drive != 'E:\') = 0 THEN 'No problem found'
+ELSE (select 'Drive ' + Drive + ' has just ' + CAST(FreeSpaceInMB as nvarchar) + 'MB of free space' from ##freespace where FreeSpaceInMB < 10240 and Drive != 'E:\')
+END)
+SET @q2 = (select COUNT(*) from dbo.sysmail_sentitems where subject = 'drives with low freespace' and DATEDIFF(day,sent_date,GETDATE()) = 0 and body = @bodytext )
+SET @lastdate = (select TOP 1 sent_date from dbo.sysmail_sentitems where subject = 'drives with low freespace' and body != @bodytext order by sent_date DESC )
+--select @q1, @q2, @bodytext
+IF (@q1 > 0 and @q2 = 0)
+ begin
+  EXEC msdb.dbo.sp_send_dbmail  
+    @profile_name = 'KM SMTP',  
+    @recipients = 'peter.jasenak@konicaminolta.eu',
+    @body_format = 'HTML', 
+    @query = 'select * from ##freespace where FreeSpaceInMB < 10240', 
+    @query_result_separator = '##',
+    @subject = 'drives with low freespace',  
+    @attach_query_result_as_file = 0 ; 
+    SET @message = 'Email sent...'
+ end
+ELSE (
+SELECT  @message = CASE WHEN @q1 > 0 and @q2 > 0 THEN @bodytext + ' but, mail was already sent at ' + @lastdate
+ELSE 'No problem found'
+END
+)
+PRINT '######## '+@message+' ########'
+DROP table ##freespace
+
+
+-----#####################################################-----
+
+
+/*
+USE [msdb]
+GO
+
+/****** Object:  Job [disk_free_space]    Script Date: 10/31/2017 08:24:36 ******/
+BEGIN TRANSACTION
+DECLARE @ReturnCode INT
+SELECT @ReturnCode = 0
+/****** Object:  JobCategory [[Uncategorized (Local)]]]    Script Date: 10/31/2017 08:24:36 ******/
+IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'[Uncategorized (Local)]' AND category_class=1)
+BEGIN
+EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', @name=N'[Uncategorized (Local)]'
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+
+END
+
+DECLARE @jobId BINARY(16)
+EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'disk_free_space', 
+		@enabled=1, 
+		@notify_level_eventlog=0, 
+		@notify_level_email=0, 
+		@notify_level_netsend=0, 
+		@notify_level_page=0, 
+		@delete_level=0, 
+		@description=N'No description available.', 
+		@category_name=N'[Uncategorized (Local)]', 
+		@owner_login_name=N'KME\P.Jasenak-adm', @job_id = @jobId OUTPUT
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+/****** Object:  Step [free_space_check]    Script Date: 10/31/2017 08:24:37 ******/
+EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'free_space_check', 
+		@step_id=1, 
+		@cmdexec_success_code=0, 
+		@on_success_action=1, 
+		@on_success_step_id=0, 
+		@on_fail_action=2, 
+		@on_fail_step_id=0, 
+		@retry_attempts=0, 
+		@retry_interval=0, 
+		@os_run_priority=0, @subsystem=N'TSQL', 
+		@command=N'DECLARE @bodytext as nvarchar(max)
+DECLARE @q1 INT
+DECLARE @q2 INT
+DECLARE @lastdate nvarchar (50)
+DECLARE @message nvarchar (50)
+
+SELECT DISTINCT dovs.logical_volume_name AS LogicalName,
+dovs.volume_mount_point AS Drive,
+CONVERT(INT,dovs.available_bytes/1048576.0) AS FreeSpaceInMB
+INTO ##freespace
+FROM sys.master_files mf
+CROSS APPLY sys.dm_os_volume_stats(mf.database_id, mf.FILE_ID) dovs
+--select * from ##freespace where FreeSpaceInMB < 10240
+--select * from dbo.sysmail_sentitems order by sent_date desc
+
+SET @q1 = (select COUNT(*) from ##freespace where FreeSpaceInMB < 10240 and Drive != ''E:\'')
+SET @bodytext = (select ''body''=Case when @q1 > 1 THEN ''More than one drive reached the limit of free space left, see attached file''
+WHEN (select COUNT(*) from ##freespace where FreeSpaceInMB < 10240 and Drive != ''E:\'') = 0 THEN ''No problem found''
+ELSE (select ''Drive '' + Drive + '' has just '' + CAST(FreeSpaceInMB as nvarchar) + ''MB of free space'' from ##freespace where FreeSpaceInMB < 10240 and Drive != ''E:\'')
+END)
+SET @q2 = (select COUNT(*) from dbo.sysmail_sentitems where subject = ''drives with low freespace'' and DATEDIFF(day,sent_date,GETDATE()) = 0 and body = @bodytext )
+SET @lastdate = (select TOP 1 sent_date from dbo.sysmail_sentitems where subject = ''drives with low freespace'' and body != @bodytext order by sent_date DESC )
+--select @q1, @q2, @bodytext
+IF (@q1 > 0 and @q2 = 0)
+ begin
+  EXEC msdb.dbo.sp_send_dbmail  
+    @profile_name = ''KM SMTP'',  
+    @recipients = ''peter.jasenak@konicaminolta.eu'',
+    @body_format = ''HTML'', 
+    @query = ''select * from ##freespace where FreeSpaceInMB < 10240'', 
+    @query_result_separator = ''##'',
+    @subject = ''drives with low freespace'',  
+    @attach_query_result_as_file = 0 ; 
+    SET @message = ''Email sent...''
+ end
+ELSE (
+SELECT  @message = CASE WHEN @q1 > 0 and @q2 > 0 THEN @bodytext + '' but, mail was already sent at '' + @lastdate
+ELSE ''No problem found''
+END
+)
+PRINT ''######## ''+@message+'' ########''
+DROP table ##freespace', 
+		@database_name=N'msdb', 
+		@flags=0
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+EXEC @ReturnCode = msdb.dbo.sp_add_jobschedule @job_id=@jobId, @name=N'every_5_min', 
+		@enabled=1, 
+		@freq_type=4, 
+		@freq_interval=1, 
+		@freq_subday_type=4, 
+		@freq_subday_interval=5, 
+		@freq_relative_interval=0, 
+		@freq_recurrence_factor=0, 
+		@active_start_date=20171030, 
+		@active_end_date=99991231, 
+		@active_start_time=0, 
+		@active_end_time=235959, 
+		@schedule_uid=N'44a8d318-5e59-4177-bf5d-95502c77421f'
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)'
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
+COMMIT TRANSACTION
+GOTO EndSave
+QuitWithRollback:
+    IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION
+EndSave:
+
+GO
+
+*/

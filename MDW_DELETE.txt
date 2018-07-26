@@ -1,0 +1,30 @@
+/****** Script for SelectTopNRows command from SSMS  ******/
+SELECT TOP 1000 [sql_handle]
+      ,[plan_handle]
+      ,[statement_start_offset]
+      ,[statement_end_offset]
+      ,[plan_generation_num]
+      ,[creation_time]
+      ,[database_id]
+      ,[object_id]
+      ,[object_name]
+      ,[query_plan]
+      ,[source_id]
+  FROM [MDW].[snapshots].[notable_query_plan]
+  where plan_handle = 0x05000A00FBB4951540A183C30A0000000000000000000000 --AND creation_time > DATEADD(DAY, -1, SYSDATETIMEOFFSET())
+  ORDER BY creation_time DESC
+
+  SELECT creation_time, DATEADD(DAY,SYSDATETIMEOFFSET(), GETDATE())
+  FROM [snapshots].[notable_query_plan]
+
+------------------------------------------
+
+
+  DECLARE @repeats AS INT
+  SET @repeats = 10000
+
+  WHILE @repeats >= 1
+  BEGIN
+  DELETE del FROM (SELECT TOP 1 * FROM MDW.snapshots.notable_query_plan where creation_time < DATEADD(DAY, -1, SYSDATETIMEOFFSET())) del
+  SET @repeats = @repeats - 1
+  END

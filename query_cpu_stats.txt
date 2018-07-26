@@ -1,0 +1,48 @@
+select top 100 * from sys.dm_exec_query_stats
+ORDER BY last_worker_time DESC
+
+select TOP 100 * from sys.dm_exec_requests
+ORDER BY cpu_time DESC
+
+SELECT TOP 100 * FROM sys.dm_exec_sql_text(0x02000000AB0BAA085A8CD165DC81784F702E0CB20B3B14190000000000000000000000000000000000000000)
+
+------------------------------------------------
+
+SELECT
+TOP 50
+qs.total_worker_time / execution_count AS avg_worker_time,
+substring(st.text,
+(qs.statement_start_offset / 2) + 1,
+((CASE qs.statement_end_offset
+WHEN 
+-1 THEN datalength(st.text)
+ELSE
+qs.statement_end_offset
+END 
+- qs.statement_start_offset) / 2) + 1)
+AS statement_text,
+*
+FROM
+sys.dm_exec_query_stats AS qs
+CROSS APPLY
+sys.dm_exec_sql_text(qs.sql_handle) AS st
+ORDER BY
+avg_worker_time DESC
+---------------------------------------------------------
+SELECT TOP 3
+total_worker_time ,
+execution_count ,
+total_worker_time / execution_count AS [Avg CPU Time] ,
+CASE WHEN deqs.statement_start_offset = 0
+AND deqs.statement_end_offset = -1
+THEN '-- see objectText column--'
+ELSE '-- query --' + CHAR(13) + CHAR(10)
++ SUBSTRING(execText.text, deqs.statement_start_offset / 2,
+( ( CASE WHEN deqs.statement_end_offset = -1
+THEN DATALENGTH(execText.text)
+ELSE deqs.statement_end_offset
+END ) - deqs.statement_start_offset ) / 2)
+END AS queryText
+FROM sys.dm_exec_query_stats deqs
+CROSS APPLY sys.dm_exec_sql_text(deqs.plan_handle) AS execText
+ORDER BY deqs.total_worker_time DESC ;

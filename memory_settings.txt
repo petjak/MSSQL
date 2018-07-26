@@ -1,0 +1,56 @@
+DECLARE @QSPM VARCHAR(1000) -- query to get server physical memory
+DECLARE @NMM DECIMAL(9,0) -- New max memory value MB
+DECLARE @OMM DECIMAL(12,0) -- Old MaxMemory value MB
+DECLARE @SPM DECIMAL(9,2) -- Server physical memory
+DECLARE @limit INT --default max memory value
+DECLARE @memOsBase DECIMAL(9,2),
+@memOs4_16GB DECIMAL(9,2),
+@memOsOver_16GB DECIMAL(9,2),
+@memOsTot DECIMAL(9,2),
+@memForSql DECIMAL(9,0)
+----------------------------------------------------
+IF OBJECT_ID('tempdb..#mem') IS NOT NULL DROP TABLE #mem
+
+CREATE TABLE #mem(mem DECIMAL(9,2)) --TEMPTABLE
+----------------------------------------------------
+SET @limit = 2147483647
+SET @OMM = (SELECT CAST(value AS INT)/1. FROM sys.configurations WHERE name = 'max server memory (MB)')
+
+IF CAST(LEFT(CAST(SERVERPROPERTY('ResourceVersion') AS VARCHAR(20)), 1) AS INT) = 9
+SET @QSPM = '(SELECT physical_memory_in_bytes/(1024*1024.) FROM sys.dm_os_sys_info)'
+ELSE
+   IF CAST(LEFT(CAST(SERVERPROPERTY('ResourceVersion') AS VARCHAR(20)), 2) AS INT) >= 11
+     SET @QSPM = '(SELECT physical_memory_kb/(1024.) FROM sys.dm_os_sys_info)'
+   ELSE
+     SET @QSPM = '(SELECT physical_memory_in_bytes/(1024*1024.) FROM sys.dm_os_sys_info)'
+
+SET @QSPM = 'DECLARE @mem decimal(9,2) SET @mem = (' + @QSPM + ') INSERT INTO #mem(mem) VALUES(@mem)'
+
+EXEC(@QSPM)
+SET @SPM = (SELECT MAX(mem) FROM #mem)
+--------------------------------------------------------------
+SET @memOsBase = 1024
+SET @memOs4_16GB =
+  CASE
+    WHEN @SPM <= 4096 THEN 0
+   WHEN @SPM > 4096 AND @SPM <= 16384 THEN (@SPM - 4096) / 4
+    WHEN @SPM >= 16384 THEN 3096
+  END
+
+SET @memOsOver_16GB =
+  CASE
+    WHEN @SPM <= 16384 THEN 0
+   ELSE (@SPM - 16384) / 8
+  END
+
+SET @memOsTot = @memOsBase + @memOs4_16GB + @memOsOver_16GB
+SET @NMM = @SPM - @memOsTot
+---------------------------------------------------------
+SELECT "Maximum Server Memory (MB)" = CASE
+WHEN @OMM = @limit THEN @NMM
+WHEN @OMM < @limit AND @OMM < @NMM THEN @OMM
+WHEN @OMM < @limit AND @OMM > @NMM THEN @NMM
+END
+
+
+SELECT @SPM as Server_physical_memory, @OMM as Actual_max_memory, @NMM as New_max_memory

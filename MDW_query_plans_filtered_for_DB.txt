@@ -1,0 +1,17 @@
+SELECT 		qt.[sql_handle]
+      --,qt.[database_id]
+      --,qt.[object_id]
+      --,qt.[object_name]
+      ,[sql_text]
+	  ,CAST(qp.query_plan as xml) as query_plan
+	  ,CAST(qp.query_plan as xml).value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (//@Database)[1]', 'nvarchar(20)') as database_name
+	  ,CAST(qp.query_plan as xml).value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (//ParameterList/ColumnReference[@Column="@DCA_ID"]/@ParameterCompiledValue)[1]', 'nvarchar(20)') as DCA_ID
+      --,[source_id]
+INTO #mdw_queries
+  FROM [KMLDBC09_MDW].[snapshots].[notable_query_text] qt
+  join snapshots.notable_query_plan qp on qt.sql_handle = qp.sql_handle
+ where sql_text like '%@DCA_ID%'
+and CAST(qp.query_plan as xml).value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (//@Database)[1]', 'nvarchar(20)') = '[CSRCv21]'
+ --where sql_text like '%SET DCA_SERVER_INFO.TEMP_REG_DEVICE_EXISTS%'
+ select * from #mdw_queries order by DCA_ID
+ DROP table #mdw_queries

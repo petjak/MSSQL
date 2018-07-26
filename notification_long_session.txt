@@ -1,0 +1,14 @@
+DECLARE @result AS nvarchar(MAX)
+DECLARE @running_time as INT
+SET @running_time = (select total_elapsed_time / 1000 / 3600 from sys.dm_exec_requests where status IN ('suspended', 'running') AND DATEDIFF(hour, start_time, GETDATE()) > 12)
+SET @result = (SELECT 'THERE IS A LONG RUNNING SESSION' + CHAR(13)+CHAR(10) + 'SPID: '+ CAST(session_id AS nvarchar(4)) + CHAR(13)+CHAR(10) + 'Start_time: ' + CAST(start_time AS nvarchar(30)) + CHAR(13)+CHAR(10) + 'Status: ' +  status + CHAR(13)+CHAR(10) +  'Database_name: ' + DB_NAME(database_id) + CHAR(13)+CHAR(10) +  text/* + '; ' + CAST(blocking_session_id AS nvarchar(4)) + '; ' + CAST(total_elapsed_time / 1000 / 3600 AS nvarchar(15)) + ';' + CAST(granted_query_memory AS nvarchar(8)) */from sys.dm_exec_requests
+CROSS APPLY sys.dm_exec_sql_text(sql_handle) AS qt
+where status IN ('suspended', 'running') AND DATEDIFF(hour, start_time, GETDATE()) > 12)
+
+IF EXISTS (select total_elapsed_time / 1000 / 3600 from sys.dm_exec_requests where status IN ('suspended', 'running') AND DATEDIFF(hour, start_time, GETDATE()) > 12)
+BEGIN
+     EXEC msdb.dbo.sp_send_dbmail
+        @recipients = 'peter.jasenak@konicaminolta.eu',
+        @body = @result,
+        @subject = 'Long-Running Session'
+	END

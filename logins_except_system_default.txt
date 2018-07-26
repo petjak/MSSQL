@@ -1,0 +1,18 @@
+select name, isntgroup, isntuser  from sys.syslogins where name NOT IN ('BS\BS-Administration-SQL-Group',
+'##MS_SQLAuthenticatorCertificate##',
+'##MS_PolicySigningCertificate##',
+'##MS_SmoExtendedSigningCertificate##',
+'##MS_PolicyTsqlExecutionLogin##',
+'NT SERVICE\SQLWriter',
+'NT SERVICE\Winmgmt',
+'NT SERVICE\MSSQLSERVER',
+'NT AUTHORITY\SYSTEM',
+'NT SERVICE\SQLSERVERAGENT',
+'NT SERVICE\SQLTELEMETRY',
+'##MS_AgentSigningCertificate##',
+'##MS_PolicyEventProcessingLogin##',
+'##MS_SQLReplicationSigningCertificate##',
+'##MS_SQLResourceSigningCertificate##',
+'sa',
+'NT AUTHORITY\NETWORK SERVICE')
+order by name

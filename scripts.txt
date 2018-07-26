@@ -1,0 +1,352 @@
+Databases options
+
+select * from sys.databases
+--------------------------------------------------------------
+
+SELECT name, database_id, state_desc FROM sys.databases - used for problem solving and diagnostics
+
+
+ALTER DATABASE SET SINGLE_USER
+
+ALTER DATABASE xxx SET OFFLINE/ONLINE - put DB offline/online
+
+ALTER DATABASE XXX modify file ( NAME = logical_filename, FILENAME = 'c:\....') - change the path of the physical file
+
+
+DBCC CHECKDB - check database integrity
+
+DBCC SHRINKDATABASE - shrink
+
+
+Query used for determinig what indexes need to be rebuilt or reorganized:
+
+use master
+go select avg_fragmentation_in_percent, avg_fragment_size_in_pages
+from sys.dm_db_index_physical_stats(NULL, NULL, NULL, 'DETAILED')
+GO
+----------------------------------------------------------------------------
+performance data
+
+SELECT object_name, counter_name, instance_name, cntr_value, cntr_type
+FROM sys.dm_os_performance_counters;
+
+----------------------------------------------------------------------------
+get all DB size
+
+SELECT      sys.databases.name,
+            CONVERT(VARCHAR,SUM(size)*8/1024)+' MB' AS [Total disk space]
+FROM        sys.databases
+JOIN        sys.master_files
+ON          sys.databases.database_id=sys.master_files.database_id
+GROUP BY    sys.databases.name
+ORDER BY    sys.databases.name
+------------------------------------------------------------------------------
+physical file size + location
+
+SELECT
+DB_NAME(mf.database_id) AS databaseName,
+name as File_LogicalName,
+case
+when type_desc = 'LOG' then 'Log File'
+when type_desc = 'ROWS' then 'Data File'
+Else type_desc
+end as File_type_desc
+,mf.physical_name
+,num_of_reads
+,num_of_bytes_read
+,io_stall_read_ms
+,num_of_writes
+,num_of_bytes_written
+,io_stall_write_ms
+,io_stall
+,size_on_disk_bytes
+,size_on_disk_bytes/ 1024 as size_on_disk_KB
+,size_on_disk_bytes/ 1024 / 1024 as size_on_disk_MB
+,size_on_disk_bytes/ 1024 / 1024 / 1024 as size_on_disk_GB
+FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS divfs
+JOIN sys.master_files AS mf ON mf.database_id = divfs.database_id
+AND mf.file_id = divfs.file_id
+ORDER BY num_of_Reads DESC
+----------------------------------------------------------------------------------
+size and free space for each db
+
+DECLARE @DBInfo TABLE
+( ServerName VARCHAR(100),
+DatabaseName VARCHAR(100),
+FileSizeMB INT,
+FileType INT,
+LogicalFileName sysname,
+PhysicalFileName NVARCHAR(520),
+Status sysname,
+Updateability sysname,
+RecoveryMode sysname,
+FreeSpaceMB INT,
+FreeSpacePct VARCHAR(7),
+FreeSpacePages INT,
+PollDate datetime)
+
+DECLARE @command VARCHAR(5000)
+
+SELECT @command = 'Use [' + '?' + '] SELECT
+@@servername as ServerName,
+' + '''' + '?' + '''' + ' AS DatabaseName,
+CAST(sysfiles.size/128.0 AS int) AS FileSize,
+groupid,
+sysfiles.name AS LogicalFileName, sysfiles.filename AS PhysicalFileName,
+CONVERT(sysname,DatabasePropertyEx(''?'',''Status'')) AS Status,
+CONVERT(sysname,DatabasePropertyEx(''?'',''Updateability'')) AS Updateability,
+CONVERT(sysname,DatabasePropertyEx(''?'',''Recovery'')) AS RecoveryMode,
+CAST(sysfiles.size/128.0 - CAST(FILEPROPERTY(sysfiles.name, ' + '''' +
+       'SpaceUsed' + '''' + ' ) AS int)/128.0 AS int) AS FreeSpaceMB,
+CAST(100 * (CAST (((sysfiles.size/128.0 -CAST(FILEPROPERTY(sysfiles.name,
+' + '''' + 'SpaceUsed' + '''' + ' ) AS int)/128.0)/(sysfiles.size/128.0))
+AS decimal(4,2))) AS varchar(8)) + ' + '''' + '%' + '''' + ' AS FreeSpacePct,
+GETDATE() as PollDate FROM dbo.sysfiles'
+INSERT INTO @DBInfo
+   (ServerName,
+   DatabaseName,
+   FileSizeMB,
+   FileType,
+   LogicalFileName,
+   PhysicalFileName,
+   Status,
+   Updateability,
+   RecoveryMode,
+   FreeSpaceMB,
+   FreeSpacePct,
+   PollDate)
+EXEC sp_MSForEachDB @command
+
+
+SELECT
+   Databasename, PhysicalFileName, FileSizeMB, FreeSpaceMB
+ -- (Sum(FileSizeMB)- SUM(FreeSpaceMB))*100/(Sum(FileSizeMB)) as SpaceUsedPct
+  
+FROM @DBInfo
+--where FileType = 0
+--group by DatabaseName, Filetype
+
+SELECT
+   DatabaseName,
+  Sum(FileSizeMB) as TotalSizeMB, SUM(FreeSpaceMB) as FreeSpaceMB, CAST(SUM(FreeSpaceMB) as decimal(10,1))/CAST(Sum(FileSizeMB) as decimal(10,1))
+   --PollDate
+FROM @DBInfo
+where FileType <>0 
+group by DatabaseName, Filetype
+------------------------------------------------------------------------------
+SQL server details
+
+select substring(@@version, 1,(select charindex('-',@@version)-2)) AS PRODUCT,
+	SERVERPROPERTY('productversion') AS VERSION,
+	SERVERPROPERTY ('productlevel') AS [SERVICE PACK LEVEL],
+	SERVERPROPERTY ('edition') AS EDITION,
+	SERVERPROPERTY ('MachineName') AS [SERVER NAME],
+	--SERVERPROPERTY ('IsClustered') AS [IS CLUSTERED],
+	case SERVERPROPERTY ('IsClustered') 
+	when 0 then 'N'
+	when 1 then 'Y'
+--	else ''
+	end AS [IS CLUSTERED]
+-----------------------------------------------------------------------------
+check Mirroring
+
+SELECT
+A.name,
+CASE
+    WHEN B.mirroring_state is NULL THEN 'Mirroring not configured'
+    ELSE 'Mirroring configured'
+END as MirroringState
+FROM
+sys.databases A
+INNER JOIN sys.database_mirroring B
+ON A.database_id=B.database_id
+WHERE a.database_id > 4
+ORDER BY A.NAME
+-----------------------------------------------------
+buffer cache hit ratio
+
+SELECT object_name, counter_name, cntr_value
+FROM sys.dm_os_performance_counters
+WHERE [object_name] LIKE '%Buffer Manager%'
+AND [counter_name] = 'Buffer cache hit ratio'
+
+https://www.simple-talk.com/sql/database-administration/great-sql-server-debates-buffer-cache-hit-ratio/
+http://www.sqlshack.com/sql-server-memory-performance-metrics-part-4-buffer-cache-hit-ratio-page-life-expectancy/
+-------------------------------------------------
+--file size + free space
+
+if convert(varchar(20),SERVERPROPERTY('productversion')) like '8%'
+
+SELECT [name], fileid, filename, [size]/128 AS 'Total Size in MB',
+[size]/128.0 - CAST(FILEPROPERTY(name, 'SpaceUsed') AS int)/128.0 AS 'Available Space In MB',
+CAST(FILEPROPERTY(name, 'SpaceUsed') AS int)/128.0 AS 'Used Space In MB',
+(100-((([size]/128.0 - CAST(FILEPROPERTY(name, 'SpaceUsed') AS int)/128)/([size]/128))*100)) AS 'percentage Used'
+FROM sysfiles
+else
+SELECT [name], file_id, physical_name, [size]/128 AS 'Total Size in MB',
+[size]/128.0 - CAST(FILEPROPERTY(name, 'SpaceUsed') AS int)/128.0 AS 'Available Space In MB',
+CAST(FILEPROPERTY(name, 'SpaceUsed') AS int)/128.0 AS 'Used Space In MB',
+(100-((([size]/128.0 - CAST(FILEPROPERTY(name, 'SpaceUsed') AS int)/128)/([size]/128))*100)) AS 'percentage Used'
+FROM sys.database_files
+----------------------------------------------------
+create user
+
+USE [master]
+GO
+CREATE LOGIN [test] WITH PASSWORD=N'test', DEFAULT_DATABASE=[master], CHECK_EXPIRATION=OFF, CHECK_POLICY=OFF
+GO
+EXEC master..sp_addsrvrolemember @loginame = N'test', @rolename = N'sysadmin'
+GO 
+---------------------------------------------------------
+sysadmins
+
+USE master
+GO
+
+SELECT  p.name AS [loginname] ,
+        p.type ,
+        p.type_desc ,
+        p.is_disabled,
+        CONVERT(VARCHAR(10),p.create_date ,101) AS [created],
+        CONVERT(VARCHAR(10),p.modify_date , 101) AS [update]
+FROM    sys.server_principals p
+        JOIN sys.syslogins s ON p.sid = s.sid
+WHERE   p.type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN', 'WINDOWS_GROUP')
+        -- Logins that are not process logins
+        AND p.name NOT LIKE '##%'
+        -- Logins that are sysadmins
+        AND s.sysadmin = 1
+GO
+
+-----------------------------------------------------------------------
+restore DB
+
+RESTORE DATABASE Viniteca_Elixir
+FROM DISK = 'U:\Viniteca_Production_full.bak'
+WITH 
+MOVE 'Viniteca_Champagne' TO 'U:\SQLDATA\MSSQL11.MSSQLSERVER\MSSQL\Data\Viniteca_RepriseDonnees.mdf',
+MOVE 'Viniteca_Champagne_Log' TO 'L:\SQLDATA\MSSQL11.MSSQLSERVER\MSSQL\Data\Viniteca_RepriseDonnees_log.ldf',
+REPLACE
+
+--------------------------------------------------------------------
+create login
+
+CREATE LOGIN [ibm_monitoring] WITH PASSWORD=N'π˛≤''˙±År	u‡√"?‰√Ø®g?¸?!?ro—
+@÷', DEFAULT_DATABASE=[master], DEFAULT_LANGUAGE=[us_english], CHECK_EXPIRATION=OFF, CHECK_POLICY=ON
+GO
+
+EXEC sys.sp_addsrvrolemember @loginame = N'ibm_monitoring', @rolename = N'sysadmin'
+GO
+
+ALTER LOGIN [ibm_monitoring] DISABLE
+GO
+-------------------------------------------------------------------------
+backup restore status
+
+SELECT session_id as SPID, command, a.text AS Query, start_time, percent_complete, dateadd(second,estimated_completion_time/1000, getdate()) as estimated_completion_time
+FROM sys.dm_exec_requests r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) a
+WHERE r.command in ('BACKUP DATABASE','RESTORE DATABASE')
+-------------------------------------------------------------------------
+last backups
+
+SELECT sdb.Name AS DatabaseName,
+COALESCE(CONVERT(VARCHAR(12), MAX(bus.backup_finish_date), 101),'-') AS LastBackUpTime
+FROM sys.sysdatabases sdb
+LEFT OUTER JOIN msdb.dbo.backupset bus ON bus.database_name = sdb.name
+GROUP BY sdb.Name
+-----------------------------------------------------------------------
+OLD Backups
+
+SELECT sdb.Name AS DatabaseName, 
+MAX(bus.backup_finish_date) AS LastBackUpTime
+FROM sys.sysdatabases sdb
+LEFT OUTER JOIN msdb.dbo.backupset bus ON bus.database_name = sdb.name
+WHERE sdb.Name NOT IN ('master','model', 'tempDB', 'msdb') AND bus.backup_finish_date < '2015-12-27 00:00:00.000'
+GROUP BY sdb.Name
+----------------------------------------------------------------------------------
+all db's backup script
+
+DECLARE @Baksql VARCHAR(8000)
+DECLARE @BackupFolder VARCHAR(100)
+DECLARE @BackupFile VARCHAR(100)
+DECLARE @BAK_PATH VARCHAR(4000)
+DEclare @BackupDate varchar(100)
+ 
+-- Setting value of  backup date and folder of the backup
+SET @BackupDate =  REPLACE(REPLACE(REPLACE(CONVERT(VARCHAR,GETDATE(),120),'-',''),':',''),' ','_') -- 20110517_182551
+SET @BackupFolder = '\\ntchwifsv04\SQL_migration\NTCHWIDBP09_SHAREPOINT\'
+SET @Baksql = ''
+ 
+-- Declaring cursor
+DECLARE c_bakup CURSOR FAST_FORWARD READ_ONLY FOR 
+SELECT NAME, database_id FROM SYS.DATABASES
+WHERE state_desc = 'ONLINE' -- Consider databases which are online
+-- AND database_id > 4  -- Exluding system databases
+ 
+ 
+-- Opening and fetching next values from sursor
+OPEN c_bakup
+FETCH NEXT FROM c_bakup INTO @BackupFile
+ 
+WHILE @@FETCH_STATUS = 0
+BEGIN
+ 
+SET @BAK_PATH = @BackupFolder + @BackupFile
+ 
+-- Creating dynamic script for every databases backup
+SET @Baksql = 'BACKUP DATABASE ['+@BackupFile+'] TO DISK = '''+@BAK_PATH+'_FullBackup_'+@BackupDate+'.bak'' WITH COPY_ONLY, COMPRESSION;'
+ -- Executing dynamic query
+PRINT (@Baksql)
+EXEC(@Baksql)
+ 
+-- Opening and fetching next values from sursor
+FETCH NEXT FROM c_bakup INTO @BackupFile
+END
+ 
+-- Closing and Deallocating cursor
+CLOSE c_bakup
+DEALLOCATE c_bakup
+---------------------------------------------------------------------------------------
+DIFF backup of all DBs
+
+
+DECLARE @Baksql VARCHAR(8000)
+DECLARE @BackupFolder VARCHAR(100)
+DECLARE @BackupFile VARCHAR(100)
+DECLARE @BAK_PATH VARCHAR(4000)
+DEclare @BackupDate varchar(100)
+ 
+-- Setting value of  backup date and folder of the backup
+SET @BackupDate =  REPLACE(REPLACE(REPLACE(CONVERT(VARCHAR,GETDATE(),120),'-',''),':',''),' ','_') -- 20110517_182551
+SET @BackupFolder = '\\ntchwifsv04\SQL_migration\DIFF_BACKUPS\NTCHWIDBP10$TFS\'
+SET @Baksql = ''
+ 
+-- Declaring cursor
+DECLARE c_bakup CURSOR FAST_FORWARD READ_ONLY FOR 
+SELECT NAME FROM SYS.DATABASES
+WHERE state_desc = 'ONLINE' -- Consider databases which are online
+-- AND database_id > 4  -- Exluding system databases
+ 
+ 
+-- Opening and fetching next values from sursor
+OPEN c_bakup
+FETCH NEXT FROM c_bakup INTO @BackupFile
+ 
+WHILE @@FETCH_STATUS = 0
+BEGIN
+ 
+SET @BAK_PATH = @BackupFolder + @BackupFile
+ 
+-- Creating dynamic script for every databases backup
+SET @Baksql = 'BACKUP DATABASE ['+@BackupFile+'] TO DISK = '''+@BAK_PATH+'_DIFF_'+@BackupDate+'.bak'' WITH DIFFERENTIAL, COPY_ONLY, COMPRESSION;'
+ -- Executing dynamic query
+PRINT (@Baksql)
+EXEC(@Baksql)
+ 
+-- Opening and fetching next values from sursor
+FETCH NEXT FROM c_bakup INTO @BackupFile
+END
+ 
+-- Closing and Deallocating cursor
+CLOSE c_bakup
+DEALLOCATE c_bakup

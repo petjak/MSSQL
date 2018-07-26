@@ -1,0 +1,54 @@
+--DECLARE       @DBEngineLogin       VARCHAR(100)
+
+DECLARE       @AgentLogin          VARCHAR(100)
+
+ 
+
+/*EXECUTE       master.dbo.xp_instance_regread
+
+              @rootkey      = N'HKEY_LOCAL_MACHINE',
+
+              @key          = N'SYSTEM\CurrentControlSet\Services\MSSQLServer',
+
+              @value_name   = N'ObjectName',
+
+              @value        = @DBEngineLogin OUTPUT*/
+
+ 
+
+EXECUTE       master.dbo.xp_instance_regread
+
+              @rootkey      = N'HKEY_LOCAL_MACHINE',
+
+              @key          = N'SYSTEM\CurrentControlSet\Services\SQLServerAgent',
+
+              @value_name   = N'ObjectName',
+
+              @value        = @AgentLogin OUTPUT
+
+ 
+
+--SELECT       /* [DBEngineLogin] = @DBEngineLogin, */[AgentLogin] = @AgentLogin
+
+
+--SELECT DEFAULT_DOMAIN()[DomainName]
+
+DECLARE @Domain varchar(100), @regkey varchar(100)
+DECLARE @login varchar(255)
+SET @regkey = 'SYSTEM\ControlSet001\Services\Tcpip\Parameters\'
+EXEC master..xp_regread @rootkey='HKEY_LOCAL_MACHINE', @key=@regkey,@value_name='Domain',@value=@Domain OUTPUT
+
+SELECT @login = CASE
+WHEN @AgentLogin = 'LocalSystem' THEN  (SELECT LEFT(convert(varchar(100),@Domain),(CHARINDEX('.', convert(varchar(100),@Domain)))-1) + '\' + CAST(SERVERPROPERTY('MachineName') AS VARCHAR(50)) + '$')
+WHEN @AgentLogin = 'NT AUTHORITY\NETWORKSERVICE' THEN ''
+WHEN @AgentLogin = 'NT AUTHORITY\NETWORK SERVICE' THEN ''
+WHEN @AgentLogin  IS NULL THEN ''
+ELSE @AgentLogin
+END
+
+
+
+
+SELECT 'CREATE LOGIN [' + @login + '] FROM WINDOWS WITH DEFAULT_DATABASE=[msdb], DEFAULT_LANGUAGE=[us_english];',
+'CREATE USER [' + @login + ']' + ' FOR LOGIN [' + @login + ']' + ' WITH DEFAULT_SCHEMA=[dbo];',
+'ALTER ROLE TargetServersRole ADD MEMBER [' + @login + '];'

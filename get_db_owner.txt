@@ -1,0 +1,11 @@
+--contol server right is needed
+
+EXEC sp_changedbowner 'BS\cz011897' or ALTER AUTHORIZATION ON DATABASE::pjstst TO [BS\cz011897]
+
+CREATE USER [BS\BS_NAV_NUS3_DEV_Admin]
+
+ALTER ROLE db_owner ADD MEMBER [BS\BS_NAV_NUS3_DEV_Admin]
+
+CREATE USER [BS\BS.NUS3-DEV-CORE_srv]
+
+ALTER ROLE db_owner ADD MEMBER [BS\BS.NUS3-DEV-CORE_srv]

@@ -1,0 +1,11 @@
+---pustit detailny vypis zo statistiky, ale velmi opatrne a nie v produkcii-----
+---tam su stlpce ghost_record  a version_ghost_record-----
+
+SELECT * FROM sys.dm_db_index_physical_stats
+(DB_ID(N'Remedy_DEV_01'), OBJECT_ID(N'P1502'), NULL, NULL , 'DETAILED'); 
+
+--- ak je vysledok statistiky > 0 znamena ze v tabulke zu ghost zaznamy kt. treba zmazat --------
+--- nasledujucou SP ktora bezi cez celu DB a je casovo narocna ----------------
+
+
+EXEC sp_clean_db_free_space @dbname=N'Remedy_DEV_01'

@@ -1,0 +1,11 @@
+    SELECT 
+      CASE WHEN database_id = 32767 THEN 'ResourceDB' ELSE DB_NAME(database_id) END AS DatabaseName,
+      COUNT(*) AS cached_pages,
+      (COUNT(*) * 8.0) / 1024 AS ReservedInBufferPool_MB
+    FROM
+      sys.dm_os_buffer_descriptors
+    GROUP BY
+      database_id
+    ORDER BY
+      ReservedInBufferPool_MB DESC
+    GO 

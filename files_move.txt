@@ -1,0 +1,26 @@
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev, filename='T:\TEMPDB\tempdev.mdf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev2, filename='T:\TEMPDB\tempdev2.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev3, filename='T:\TEMPDB\tempdev3.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev4, filename='T:\TEMPDB\tempdev4.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev5, filename='T:\TEMPDB\tempdev5.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev6, filename='T:\TEMPDB\tempdev6.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev7, filename='T:\TEMPDB\tempdev7.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=tempdev8, filename='T:\TEMPDB\tempdev8.ndf')
+
+ALTER DATABASE tempdb MODIFY FILE (name=templog, filename='T:\TEMPDB\templog.ldf')
+
+
+--###############################################################################################--
+--change filename=''T:\TEMPDB\' and run above particular DB which will generate ALTER commands--
+
+select 'ALTER DATABASE '+ DB_NAME(DB_ID()) + ' MODIFY FILE (name='+ name + ', filename=''T:\TEMPDB\'+ name + case when type = 0 and file_id = 1 then '.mdf'')'  when type = 0 and file_id != 1 then '.ndf'')' ELSE '.ldf'')' end from sys.master_files where database_id = DB_ID()
+
+
+select 'ALTER DATABASE ' + DB_NAME(database_id) + ' MODIFY file (name=' + name + ', filename=''' + CASE WHEN type = 0 AND file_id = 1 THEN 'g:\SQLDATA' + name + '.mdf'')' WHEN type = 0 AND file_id > 2 THEN 'g:\SQLDATA' + name + '.ndf'')' ELSE 'e:\SQLLOG\' + name + '.ldf'')' END,* from sys.master_files where database_id = DB_ID('BSKQA')

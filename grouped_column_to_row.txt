@@ -1,0 +1,4 @@
+SELECT top 100 No_ , STUFF(( SELECT  '$'+ Comment FROM [Konica Minolta Finland$Service Comment Line] a
+WHERE b.No_ = a.No_ FOR XML PATH('')),1 ,1, '')  Comments
+FROM [Konica Minolta Finland$Service Comment Line] b
+GROUP BY No_;

@@ -1,0 +1,102 @@
+--###############################################
+-----------------version store
+--#################################################
+    SELECT su.session_id, 
+      SUM(su.internal_objects_alloc_page_count) / 128 AS task_internal_objects_alloc_MB,
+      SUM(su.internal_objects_dealloc_page_count) / 128 AS task_internal_objects_dealloc_MB ,
+	  SUM(su.user_objects_alloc_page_count) /128 as task_user_alloc_MB,
+	  SUM(su.user_objects_dealloc_page_count) /128 as task_user_dealloc_MB,
+	  MAX (ss.host_name) as hostname, MAX(ss.program_name) as program, MAX(ss.login_name) as login,
+	  MAX(qt.text) as query, MAX (rq.start_time) as start_time, MAX(qt.dbid) as dbname
+    FROM sys.dm_db_task_space_usage as su
+	JOIN sys.dm_exec_sessions AS ss ON su.session_id = ss.session_id
+	JOIN sys.dm_exec_requests AS rq ON su.session_id = rq.session_id
+	OUTER APPLY sys.dm_exec_sql_text(rq.sql_handle) as qt
+    GROUP BY su.session_id
+	ORDER BY task_internal_objects_alloc_MB DESC;
+
+
+--###############################################
+-----------------temp tables
+--#################################################
+use tempdb
+
+SELECT object_name(i.object_id) as objectName,
+--i.[name] as indexName,
+MAX(i.modify_date) AS last_date,
+sum(a.total_pages) as totalPages,
+sum(a.used_pages) as usedPages,
+sum(a.data_pages) as dataPages,
+(sum(a.total_pages) * 8) / 1024 as totalSpaceMB,
+(sum(a.used_pages) * 8) / 1024 as usedSpaceMB,
+(sum(a.data_pages) * 8) / 1024 as dataSpaceMB
+FROM sys.objects i
+INNER JOIN sys.partitions p
+ON i.object_id = p.object_id
+--AND i.index_id = p.index_id
+INNER JOIN sys.allocation_units a
+ON p.partition_id = a.container_id
+WHERE object_name(i.object_id) LIKE '#%'
+GROUP BY i.object_id, i.[name]
+ORDER BY last_date ASC
+--ORDER BY sum(a.total_pages) DESC, object_name(i.object_id)
+GO
+
+
+--########################################################
+---------------------temp tables and owners---------------
+--########################################################
+
+
+use tempdb
+
+SELECT DISTINCT te.name, t.name, t.create_date, SPID, SessionLoginName
+
+FROM ::fn_trace_gettable(( SELECT LEFT(path, LEN(path)-CHARINDEX('\', REVERSE(path))) + '\Log.trc'
+
+                            FROM    sys.traces -- read all five trace files
+
+                            WHERE   is_default = 1
+
+                          ), DEFAULT) trace
+
+INNER JOIN sys.trace_events te on trace.EventClass = te.trace_event_id
+
+INNER JOIN tempdb.sys.tables  AS t ON trace.ObjectID = t.OBJECT_ID
+
+WHERE trace.DatabaseName = 'TempDB'
+
+  AND t.name LIKE '#%'
+
+  AND te.name = 'Object:Created'
+
+  AND DATEPART(dy,t.create_date)= DATEPART(Dy,trace.StartTime)
+
+  AND ABS(DATEDIFF(Ms,t.create_date,trace.StartTime))<50 --sometimes slightly out
+
+ORDER BY t.create_date
+
+
+
+
+--########################################################
+---------------------tempd usage---------------
+--########################################################
+
+SELECT es.host_name , es.login_name , es.program_name,
+st.dbid as QueryExecContextDBID, DB_NAME(st.dbid) as QueryExecContextDBNAME, st.objectid as ModuleObjectId,
+SUBSTRING(st.text, er.statement_start_offset/2 + 1,(CASE WHEN er.statement_end_offset = -1 THEN LEN(CONVERT(nvarchar(max),st.text)) * 2 ELSE er.statement_end_offset 
+END - er.statement_start_offset)/2) as Query_Text,
+tsu.session_id ,tsu.request_id, tsu.exec_context_id, 
+(tsu.user_objects_alloc_page_count - tsu.user_objects_dealloc_page_count) as OutStanding_user_objects_page_counts,
+(tsu.internal_objects_alloc_page_count - tsu.internal_objects_dealloc_page_count) as OutStanding_internal_objects_page_counts,
+(tsu.internal_objects_alloc_page_count - tsu.internal_objects_dealloc_page_count)/125 as ioc_mb,
+er.start_time, er.command, er.open_transaction_count, er.percent_complete, er.estimated_completion_time, er.cpu_time, er.total_elapsed_time, er.reads,er.writes, 
+er.logical_reads, er.granted_query_memory
+FROM sys.dm_db_task_space_usage tsu inner join sys.dm_exec_requests er 
+ ON ( tsu.session_id = er.session_id and tsu.request_id = er.request_id) 
+inner join sys.dm_exec_sessions es ON ( tsu.session_id = es.session_id ) 
+CROSS APPLY sys.dm_exec_sql_text(er.sql_handle) st
+WHERE (tsu.internal_objects_alloc_page_count+tsu.user_objects_alloc_page_count) > 0
+ORDER BY (tsu.user_objects_alloc_page_count - tsu.user_objects_dealloc_page_count)+(tsu.internal_objects_alloc_page_count - tsu.internal_objects_dealloc_page_count) 
+DESC

@@ -1,0 +1,240 @@
+	
+	use master
+	go
+	sp_configure 'show advanced options',1
+	go
+	reconfigure with override
+	go
+	sp_configure 'Database Mail XPs',1
+--go
+	--sp_configure 'SQL Mail XPs',0
+	go
+	reconfigure
+go
+	
+	--#################################################################################################
+	-- BEGIN Mail Settings KM SMTP
+	--#################################################################################################
+	DECLARE @server varchar (10)
+	DECLARE @mail AS varchar (50)
+
+	SET @server = @@SERVERNAME
+	SET @mail = @@SERVERNAME + '@bs.kme.intern'
+	IF NOT EXISTS(SELECT * FROM msdb.dbo.sysmail_profile WHERE  name = 'KM SMTP') 
+	  BEGIN
+	    --CREATE Profile [KM SMTP]
+	    EXECUTE msdb.dbo.sysmail_add_profile_sp
+	      @profile_name = 'KM SMTP',
+	      @description  = '';
+	  END --IF EXISTS profile
+	  
+	  IF NOT EXISTS(SELECT * FROM msdb.dbo.sysmail_account WHERE  name = 'KM SMTP')
+	  BEGIN
+	    --CREATE Account [KM SMTP]
+	    EXECUTE msdb.dbo.sysmail_add_account_sp
+	    @account_name            = 'KM SMTP',
+	    @email_address           = @mail,
+	    @display_name            = @@SERVERNAME,
+	    @replyto_address         = '',
+	    @description             = '',
+	    @mailserver_name         = '150.16.41.203',
+	    @mailserver_type         = 'SMTP',
+	    @port                    = '25',
+	    @username                =  NULL ,
+	    @password                =  NULL , 
+	    @use_default_credentials =  0 ,
+	    @enable_ssl              =  0 ;
+	  END --IF EXISTS  account
+	  
+	IF NOT EXISTS(SELECT *
+	              FROM msdb.dbo.sysmail_profileaccount pa
+	                INNER JOIN msdb.dbo.sysmail_profile p ON pa.profile_id = p.profile_id
+	                INNER JOIN msdb.dbo.sysmail_account a ON pa.account_id = a.account_id  
+	              WHERE p.name = 'KM SMTP'
+	                AND a.name = 'KM SMTP') 
+	  BEGIN
+	    -- Associate Account [KM SMTP] to Profile [KM SMTP]
+	    EXECUTE msdb.dbo.sysmail_add_profileaccount_sp
+	      @profile_name = 'KM SMTP',
+	      @account_name = 'KM SMTP',
+	      @sequence_number = 1 ;
+	  END 
+--#####################################################################
+------------------------CREATE OPERATOR-----------------------------------
+--#####################################################################
+USE [msdb]
+GO
+
+/****** Object:  Operator [Peter Jasenak]    Script Date: 17.02.2016 10:38:36 ******/
+EXEC msdb.dbo.sp_add_operator @name=N'Peter Jasenak', 
+		@enabled=1, 
+		@weekday_pager_start_time=0, 
+		@weekday_pager_end_time=235959, 
+		@saturday_pager_start_time=90000, 
+		@saturday_pager_end_time=180000, 
+		@sunday_pager_start_time=90000, 
+		@sunday_pager_end_time=180000, 
+		@pager_days=62, 
+		@email_address=N'peter.jasenak@konicaminolta.eu', 
+		@category_name=N'[Uncategorized]'
+GO
+
+--#####################################################################
+------------------------CREATE ALERTS-----------------------------------
+--#####################################################################
+
+USE [msdb]
+GO
+
+/****** Object:  Alert [Alert 17]    Script Date: 17.02.2016 11:53:49 ******/
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 17', 
+		@message_id=0, 
+		@severity=17, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 17',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 18', 
+		@message_id=0, 
+		@severity=18, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 18',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 19', 
+		@message_id=0, 
+		@severity=19, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 19',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 20', 
+		@message_id=0, 
+		@severity=20, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 20',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 21', 
+		@message_id=0, 
+		@severity=21, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 21',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 22', 
+		@message_id=0, 
+		@severity=22, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 22',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 23', 
+		@message_id=0, 
+		@severity=23, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 23',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 24', 
+		@message_id=0, 
+		@severity=24, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 24',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+EXEC msdb.dbo.sp_add_alert @name=N'Alert 25', 
+		@message_id=0, 
+		@severity=25, 
+		@enabled=1, 
+		@delay_between_responses=120, 
+		@include_event_description_in=1, 
+		@category_name=N'[Uncategorized]', 
+		@job_id=N'00000000-0000-0000-0000-000000000000'
+GO
+EXEC dbo.sp_add_notification
+ @alert_name = N'Alert 25',
+ @operator_name = N'Peter Jasenak',
+ @notification_method = 1 ;
+GO
+	  
+	 --IF EXISTS associate accounts to profiles
+	--#################################################################################################
+	-- Drop Settings For KM SMTP
+	--#################################################################################################
+	/*
+	IF EXISTS(SELECT *
+	            FROM msdb.dbo.sysmail_profileaccount pa
+	              INNER JOIN msdb.dbo.sysmail_profile p ON pa.profile_id = p.profile_id
+	              INNER JOIN msdb.dbo.sysmail_account a ON pa.account_id = a.account_id  
+	            WHERE p.name = 'KM SMTP'
+	              AND a.name = 'KM SMTP')
+	  BEGIN
+	    EXECUTE msdb.dbo.sysmail_delete_profileaccount_sp @profile_name = 'KM SMTP',@account_name = 'KM SMTP'
+	  END 
+	IF EXISTS(SELECT * FROM msdb.dbo.sysmail_account WHERE  name = 'KM SMTP')
+	  BEGIN
+	    EXECUTE msdb.dbo.sysmail_delete_account_sp @account_name = 'KM SMTP'
+	  END
+	IF EXISTS(SELECT * FROM msdb.dbo.sysmail_profile WHERE  name = 'KM SMTP') 
+	  BEGIN
+	    EXECUTE msdb.dbo.sysmail_delete_profile_sp @profile_name = 'KM SMTP'
+	  END
+	*/
+	  

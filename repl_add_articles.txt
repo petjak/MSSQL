@@ -1,0 +1,27 @@
+--adding missing tables to the replication. Publication needs to be created
+
+select 'exec sp_addarticle @publication = N''Remedy_Prod_pub_new'', @article = N'''+ name+ ''', @source_owner = N''dbo'', @source_object = N'''+name+''', @type = N''logbased'', @description = N'''', @creation_script = N'''', @pre_creation_cmd = N''truncate'', @schema_option = 0x000000000803509F, @identityrangemanagementoption = N''manual'', @destination_table = N'''+name+''', @destination_owner = N''dbo'', @status = 24, @vertical_partition = N''false'', @ins_cmd = N''CALL [sp_MSins_dboTableName]'', @del_cmd = N''CALL [sp_MSdel_dboTableName]'', @upd_cmd = N''SCALL [[sp_MSupd_dboTableName]''
+GO' from sys.tables where is_published = 0 and name NOT LIKE 'AR%' and name not like 'sys%' and name NOT LIKE 'MS%' and name NOT IN ('B2402C1000000351', 'B1847C10001831', 'B4667C18100', 'B3580C536870927') order by name
+
+
+---
+
+exec sp_addarticle
+@publication = N'PublicationName',
+@article = N'TableName',
+@source_owner = N'dbo',
+@source_object = N'TableName',
+@type = N'logbased',
+@description = N'',
+@creation_script = N'',
+@pre_creation_cmd = N'truncate',
+@schema_option = 0x000000000803509F,
+@identityrangemanagementoption = N'manual',
+@destination_table = N'TableName',
+@destination_owner = N'dbo',
+@status = 24,
+@vertical_partition = N'false',
+@ins_cmd = N'CALL [sp_MSins_dboTableName]',
+@del_cmd = N'CALL [sp_MSdel_dboTableName]',
+@upd_cmd = N'SCALL [[sp_MSupd_dboTableName]'
+GO

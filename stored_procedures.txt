@@ -1,0 +1,18 @@
+sp_who2 - shows all sessions that are established in the database
+
+sp_helpdb
+sp_helpfile
+sp_cycle_errorlog
+sp_replicationdboption - disable publishing
+
+sp_vupgrade_replication 
+
+sp_removedbreplication
+
+sp_configure system A - advanced, SC - self configuring, RR - restart required - SP for configuring instance
+sp_spaceused - database space, free space
+xp_fixeddrives
+EXEC sp_helplogins @LoginNamePattern='name'
+
+sp_MSforeachdb 'use [?]; EXEC sp_helpfile'
+

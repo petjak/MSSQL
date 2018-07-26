@@ -1,0 +1,16 @@
+select ss.name as Schema_name, st.name as table_name, s.name as index_name, STATS_DATE(s.id, s.indid) as stats_last_upd
+,s.rowcnt, s.rowmodctr, CAST((CAST(s.rowmodctr as DECIMAL(28,8))/CAST(s.rowcnt AS DECIMAL(28,2))) AS DECIMAL (28,2)) AS [% Rows changed]
+FROM sys.sysindexes s
+INNER JOIN sys.tables st ON st.object_id=s.id
+INNER JOIN sys.schemas ss ON ss.schema_id=st.schema_id
+WHERE s.id>100 and s.indid >0 and s.rowcnt>500 and st.name = 'CE11000'
+
+
+--====================================================
+--statistics details
+
+SELECT  
+    sp.stats_id, name, filter_definition, last_updated, rows, rows_sampled, steps, unfiltered_rows, modification_counter   
+FROM sys.stats AS stat   
+CROSS APPLY sys.dm_db_stats_properties(stat.object_id, stat.stats_id) AS sp  
+WHERE stat.object_id = object_id('eup.CE11000'); 

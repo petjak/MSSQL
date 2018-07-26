@@ -1,0 +1,6 @@
+select 'USE ' + name + ';CREATE USER [Bs\CZ011836] FOR LOGIN [Bs\CZ011836]; EXEC sp_addrolemember @rolename = db_datareader,
+	@membername = [BS\CZ011836];'
+ from sys.databases where name like 'ECON%' OR name like 'eBIZ%'
+
+use master
+ CREATE LOGIN [BS\CZ011836] FROM WINDOWS

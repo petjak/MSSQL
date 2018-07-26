@@ -1,0 +1,21 @@
+DECLARE @NUMA SMALLINT
+DECLARE @CPU INT
+
+SET @NUMA = (SELECT COUNT(DISTINCT memory_node_id) FROM master.sys.dm_os_memory_clerks Where  memory_node_id<64)
+SET @CPU = (select cpu_count/(SELECT COUNT(DISTINCT memory_node_id) FROM master.sys.dm_os_memory_clerks Where  memory_node_id<64) from sys.dm_os_sys_info)
+
+select "MAXDOP" = CASE
+WHEN @NUMA = 1 AND @CPU <= 8 THEN 4
+WHEN @NUMA = 1 AND @CPU > 8 THEN 8
+WHEN @NUMA > 1 AND @CPU < 8 THEN 6
+WHEN @NUMA > 1 AND @CPU > 8 THEN 8
+END
+
+
+/*
+https://support.microsoft.com/en-us/kb/2806535
+Server with single NUMA node		Less than 8 logical processors			Keep MAXDOP at or below # of logical processors
+Server with single NUMA node		Greater than 8 logical processors		Keep MAXDOP at 8
+Server with multiple NUMA nodes		Less than 8 logical processors per NUMA node	Keep MAXDOP at or below # of logical processors per NUMA node
+Server with multiple NUMA nodes		Greater than 8 logical processors per NUMA node	Keep MAXDOP at 8
+*/

@@ -1,0 +1,16 @@
+create TABLE #tmp (Value NVARCHAR(20), DATA VARCHAR(5))
+INSERT INTO #tmp VALUES (0, 0)
+DECLARE @err INT
+INSERT INTO #tmp EXEC xp_instance_regread N'HKEY_LOCAL_MACHINE', N'Software\Microsoft\MSSQLServer\MSSQLServer', N'NumErrorLogs'      --, REG_DWORD, 12
+
+
+select @err = CASE
+WHEN (SELECT DATA FROM #tmp where Value = 'NumErrorLogs') < 14 THEN 14
+WHEN (SELECT DATA FROM #tmp where Value = 'NumErrorLogs') >= 14 THEN DATA
+WHEN NOT EXISTS (SELECT DATA FROM #tmp where Value = 'NumErrorLogs') THEN 14
+END
+FROM #tmp
+select @err
+drop TABLE #tmp
+
+EXEC xp_instance_regwrite N'HKEY_LOCAL_MACHINE', N'Software\Microsoft\MSSQLServer\MSSQLServer', N'NumErrorLogs', REG_DWORD, 14

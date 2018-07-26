@@ -1,0 +1,27 @@
+select s.*, g.name as group, pg.name as parent_group from dbo.sysmanagement_shared_registered_servers s
+join dbo.sysmanagement_shared_server_groups g
+ON s.server_group_id = g.server_group_id
+join dbo.sysmanagement_shared_server_groups pg
+ON g.parent_id = pg.server_group_id
+ where server_name = 'KMLDBS94'
+  where g.server_group_id NOT IN (43, 44, 45, 46, 72, 73, 74) --accessible servers
+ 
+ DECLARE @gp_id INT
+ DECLARE @gp_name VARCHAR(20)
+ DECLARE @srv_name VARCHAR(20)
+
+ SET @srv_name = 'KMLDBS94'
+ SET @gp_name = 'deactivated'  /*'Archive''Click Schedule''Common Cluster''CRM''CSRC''LYNC''MDM''MyVIS''NAV''SAP''BI''ERP''IMAM''MI''R3'
+'SolutionManager''Sharepoint''CSES''Not_sorted''express''No_rights''SCOM''no_connection_possible''accessible'not_accessible'
+'ITSM''express''2k''deactivated''NEW'*/
+ SET @gp_id = (select server_group_id from dbo.sysmanagement_shared_server_groups where name = @gp_name)
+ 
+ update dbo.sysmanagement_shared_registered_servers SET server_group_id = @gp_id WHERE server_name = @srv_name
+
+-----------------------------------------------------
+--servers with groups and parent groups--
+
+select s.server_group_id, s.name, g1.name, g2.name from dbo.sysmanagement_shared_registered_servers as s
+join dbo.sysmanagement_shared_server_groups g1 on s.server_group_id = g1.server_group_id
+join dbo.sysmanagement_shared_server_groups g2 on g1.parent_id = g2.server_group_id
+WHERE s.server_group_id NOT IN (102, 103, 105, 109, 111)

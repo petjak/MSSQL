@@ -1,0 +1,69 @@
+DECLARE @days_old SMALLINT
+SELECT @days_old = 5
+SELECT des.session_id ,
+des.login_time ,
+des.last_request_start_time ,
+des.last_request_end_time ,
+des.[status] ,
+des.[program_name] ,
+des.cpu_time ,
+des.total_elapsed_time ,
+des.memory_usage ,
+des.total_scheduled_time ,
+des.total_elapsed_time ,
+des.reads ,
+des.writes ,
+des.logical_reads ,
+des.row_count ,
+des.is_user_process
+FROM sys.dm_exec_sessions des
+INNER JOIN sys.dm_tran_session_transactions dtst
+ON des.session_id = dtst.session_id
+WHERE des.is_user_process = 1
+AND DATEDIFF(dd, des.last_request_end_time, GETDATE()) > @days_old
+AND des.status != 'Running'
+ORDER BY des.last_request_end_time
+
+
+/* SELECT    -- last_batch as firstdate,GETDATE() as seconddate,
+       cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) as minutediff
+      ,cast(cast(cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60) as int ) as varchar(10)) + ' ' + 'Days' + ' ' 
+      + cast(cast((cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60) - 
+        floor(cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60)) ) * 24 as int) as varchar(10)) + ':' 
+
+     + cast( cast(((cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60) 
+      - floor(cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60)))*24
+        -
+        cast(floor((cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60) 
+      - floor(cast(datediff(MI,last_batch,GETDATE())as decimal(10,3)) / (24*60)))*24) as decimal)) * 60 as int) as varchar(10)) AS days, 'KILL ' + CAST(spid as varchar), * 
+	  from sys.sysprocesses
+	  where spid > 50 AND status = 'sleeping' AND DATEDIFF(HH,last_batch,GETDATE()) >= 48 AND program_name NOT LIKE 'SQLAgent%' AND net_library != 'LPC' 
+*/
+/*
+
+SELECT    -- last_request_end_time as firstdate,GETDATE() as seconddate,
+       cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) as minutediff
+      ,cast(cast(cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60) as int ) as varchar(10)) + ' ' + 'Days' + ' ' 
+      + cast(cast((cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60) - 
+        floor(cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60)) ) * 24 as int) as varchar(10)) + ':' 
+
+     + cast( cast(((cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60) 
+      - floor(cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60)))*24
+        -
+        cast(floor((cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60) 
+      - floor(cast(datediff(MI,last_request_end_time,GETDATE())as decimal(10,3)) / (24*60)))*24) as decimal)) * 60 as int) as varchar(10)) AS days, * 
+	  from sys.dm_exec_sessions as s where /*login_time < DATEADD(DAY, -3, GETDATE()) and s.session_id > 50 and s.program_name NOT LIKE '%SQLAgent%' and s.login_name like '%Dvorak%' AND*/ EXISTS 
+    (
+    SELECT * 
+    FROM sys.dm_tran_session_transactions AS t
+    WHERE t.session_id = s.session_id
+    )
+    AND NOT EXISTS 
+    (
+    SELECT * 
+    FROM sys.dm_exec_requests AS r
+    WHERE r.session_id = s.session_id
+    ) 
+order by minutediff desc
+
+*/

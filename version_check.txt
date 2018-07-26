@@ -1,0 +1,82 @@
+declare @ver varchar (20),
+@index INT,
+@build varchar (4),
+@result VARCHAR (100),
+@major INT,
+@PL VARCHAR (3),
+@web VARCHAR (50),
+@2k INT,
+@2k5 INT,
+@2k8 INT,
+@2k8R2 INT,
+@2k12 INT,
+@2k14 INT,
+@2k16 INT,
+@2k17 INT,
+@SP2k VARCHAR(4),
+@SP2k5 VARCHAR(4),
+@SP2k8 VARCHAR(4),
+@SP2k8R2 VARCHAR(4),
+@SP2k12 VARCHAR(4),
+@SP2k14 VARCHAR(4),
+@SP2k16 VARCHAR(4),
+@SP2k17 VARCHAR(4)
+
+/*-----------------------SET the highest product level here ------------------*/
+SET @2k = 2305
+SET @2k5 = 5324
+SET @2k8 = 6000
+SET @2k8R2 = 6000
+SET @2k12 = 7462
+SET @2k14 = 5571
+SET @2k16 = 4466
+SET @2k17 = 3015
+SET @SP2k = 'SP4'
+SET @SP2k5 = 'SP4'
+SET @SP2k8 = 'SP4'
+SET @SP2k8R2 = 'SP3'
+SET @SP2k12 = 'SP4'
+SET @SP2k14 = 'SP2'
+SET @SP2k16 = 'SP1'
+SET @SP2k17 = 'RTM'
+/*-----------------------------------------------------------------------------*/
+SET @web = 'http://sqlserverbuilds.blogspot.de/'
+SET @PL = (SELECT CAST(SERVERPROPERTY('ProductLevel') AS VARCHAR(3)))
+set @ver =  (select CAST(SERVERPROPERTY ('ProductVersion') as VARCHAR(20)))
+SET @major = (SELECT SUBSTRING (@ver, 0, (SELECT CHARINDEX ('.' , @ver ))))
+SELECT @index = CASE 
+	WHEN @ver like '8.%' THEN 5
+	ELSE (SELECT PATINDEX ( '%.____.%' , @ver ))
+	END
+SET @build = (Select SUBSTRING(@ver, @index + 1, 4))
+SELECT  @result = CASE
+WHEN @ver like '8.%' AND @build >= @2k THEN 'OK, SQL Server is up to date'
+WHEN @ver like '8.%' AND @PL >= @SP2k AND @build < @2k THEN ('newest ' + @PL + ' installed,updates available. Visit ' + @web)
+WHEN @ver like '8.%' AND @PL < @SP2k THEN ('old ' + @PL + ' installed, ' + @SP2k + 'available. Visit ' + @web)
+WHEN @ver like '9.%' AND @build >= @2k5 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '9.%' AND @PL >= @SP2k5 AND @build < @2k5 THEN ('newest ' + @PL + ' installed, updates available. Visit ' + @web)
+WHEN @ver like '9.%' AND @PL < @SP2k5 THEN ('old ' + @PL + ' installed, ' + @SP2k5 + ' available. Visit ' + @web)
+WHEN @ver like '10.0.%' AND @build >= @2k8 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '10.0.%' AND  @PL >= @SP2k8 AND @build < @2k8 THEN 'newest ' + @PL + ' installed,updates available. Visit ' + @web
+WHEN @ver like '10.0.%' AND  @PL < @SP2k8 THEN 'old ' + @PL + ' installed, ' + @SP2k8 + ' available. Visit ' + @web
+WHEN @ver like '10.50.%' AND @build >= @2k8R2 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '10.50.%'  AND  @PL >= @SP2k8R2 AND @build < @2k8R2 THEN 'newest ' + @PL + ' installed, updates available. Visit ' + @web
+WHEN @ver like '10.50.%' AND  @PL < @SP2k8R2 THEN 'old ' + @PL + ' installed, ' + @SP2k8R2 + ' available. Visit ' + @web
+WHEN @ver like '11.%' AND @build >= @2k12 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '11.%' AND  @PL >= @SP2k12 AND @build < @2k12 THEN 'newest ' + @PL + ' installed, updates available. Visit ' + @web
+WHEN @ver like '11.%' AND @PL < @SP2k12 THEN 'old ' + @PL + ' installed, ' + @SP2k12 + ' available. Visit ' + @web
+WHEN @ver like '12.%' AND @build >= @2k14 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '12.%' AND @PL >= @SP2k14 AND @build < @2k14 THEN 'newest ' + @PL + ' installed, updates available. Visit ' + @web
+WHEN @ver like '12.%' AND @PL < @SP2k14 THEN 'old ' + @PL + ' installed, ' + @SP2k14 + ' available. Visit ' + @web
+WHEN @ver like '13.%' AND @build >= @2k16 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '13.%' AND @PL >= @SP2k16 AND @build < @2k16 THEN 'newest ' + @PL + ' installed, updates available. Visit ' + @web
+WHEN @ver like '13.%' AND @PL < @SP2k16 THEN 'old ' + @PL + ' installed, ' + @SP2k16 + ' available. Visit ' + @web
+WHEN @ver like '14.%' AND @build >= @2k17 THEN 'OK, SQL Server is up to date'
+WHEN @ver like '14.%' AND @PL >= @SP2k17 AND @build < @2k17 THEN 'newest ' + @PL + ' installed, updates available. Visit ' + @web
+WHEN @ver like '14.%' AND @PL < @SP2k17 THEN 'old ' + @PL + ' installed, ' + @SP2k17 + ' available. Visit ' + @web
+END
+SELECT @@SERVERNAME AS Sever, SERVERPROPERTY('Edition') as Edition, @ver as version, @result as result
+
+
+
+

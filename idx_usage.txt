@@ -1,0 +1,65 @@
+SELECT o.name Object_Name,
+       SCHEMA_NAME(o.schema_id) Schema_name,
+       DB_NAME(s.database_id) Database_Name,
+       'ALTER INDEX ' + i.name + ' ON ' + SCHEMA_NAME(o.schema_id) + '.' + o.name + ' DISABLE' + CHAR(13) + CHAR(10) + 'GO' as script,
+	   'DROP INDEX ' + i.name + ' ON ' + o.name + CHAR(13) + CHAR(10) + 'GO', 
+       i.Type_Desc,
+	   i.is_disabled, 
+       s.user_seeks,
+       s.user_scans, 
+       s.user_lookups, 
+       s.user_updates,
+       s.system_seeks, 
+       s.system_scans, 
+       s.system_lookups,
+	   getdate() Stat_Date,
+	   '(i.index_id = ' + CAST(i.index_id as nvarchar(15)) + ' and i.object_id = ' + CAST(i.object_id as nvarchar(15)) + ') OR ' --copy the result of this line to idx_copy_recreate where clause
+ FROM sys.objects AS o
+     JOIN sys.indexes AS i
+ ON o.object_id = i.object_id 
+     JOIN
+  sys.dm_db_index_usage_stats AS s    
+ ON i.object_id = s.object_id   
+  AND i.index_id = s.index_id
+  AND DB_ID() = s.database_id
+ WHERE  --i.is_disabled !=1 and i.is_unique != 1 --and 
+ o.type = 'u' and i.type = 2 and
+(i.name like 'idx%' OR i.name like 'dan%' or i.name like 'pjs%' or i.name like 'km%')
+
+   AND (s.user_seeks = 0 AND s.user_scans = 0 AND s.user_lookups = 0 )
+   --AND s.system_seeks = 0 AND s.system_scans = 0 AND s.system_lookups = 0)
+ORDER BY Object_Name
+
+
+
+---not used indexes--------
+
+SELECT o.name Object_Name,
+       SCHEMA_NAME(o.schema_id) Schema_name,
+       DB_NAME(s.database_id) Database_Name,
+       'ALTER INDEX ' + i.name + ' ON ' + SCHEMA_NAME(o.schema_id) + '.' + o.name + ' DISABLE' + CHAR(13) + CHAR(10) + 'GO' as script,
+	   'DROP INDEX ' + i.name + ' ON ' + o.name + CHAR(13) + CHAR(10) + 'GO', 
+       i.Type_Desc,
+	   i.is_disabled, 
+       s.user_seeks,
+       s.user_scans, 
+       s.user_lookups, 
+       s.user_updates,
+       s.system_seeks, 
+       s.system_scans, 
+       s.system_lookups,
+	   getdate() Stat_Date 
+ FROM sys.objects AS o
+     JOIN sys.indexes AS i
+ ON o.object_id = i.object_id 
+     JOIN
+  sys.dm_db_index_usage_stats AS s    
+ ON i.object_id = s.object_id   
+  AND i.index_id = s.index_id
+  AND DB_ID() = s.database_id
+ WHERE  i.is_disabled !=1 and i.is_unique != 1 --and o.type = 'u'
+ --AND o.name like 'T%'
+   AND i.type IN (2) 
+   AND(s.user_seeks = 0 AND s.user_scans = 0 AND s.user_lookups = 0 )
+   --AND s.system_seeks = 0 AND s.system_scans = 0 AND s.system_lookups = 0)
+ORDER BY Object_Name

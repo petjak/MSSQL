@@ -1,0 +1,14 @@
+EXEC sp_MSforeachdb 'USE ?
+IF ''?''  NOT IN (''tempDB'',''model'',''msdb'',''master'')
+BEGIN
+EXEC (''CREATE FUNCTION dbo.TEST (@dbid as INT)
+RETURNS nvarchar(20)
+AS
+BEGIN
+DECLARE @dbname as nvarchar(20)
+Select @dbname = CAST(DB_NAME(@dbid) AS nvarchar(20))
+RETURN @dbname
+END'')
+
+END
+'

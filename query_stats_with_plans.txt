@@ -1,0 +1,64 @@
+SELECT TOP 50 qs.execution_count, qs.total_worker_time as total_cpu_time, qs.max_worker_time as max_cpu_time, 
+qs.total_elapsed_time, qs.max_elapsed_time, qs.total_logical_reads, qs.max_logical_reads, qs.total_physical_reads, 
+qs.max_physical_reads, DB_NAME(t.dbid) as DB_Name,
+REPLACE(CAST(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/RelOp[1]/OutputList/ColumnReference/@Table)') as varchar(max)),' ',';') as tables
+,t.[text], qp.query_plan, 
+qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; count(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex)', 'int') as miss_idx_cnt,
+replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/@Impact)') as varchar(max)),' ','/') as impact,
+'miss_idx1'= CASE
+WHEN qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; count(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex)', 'int') = 0 
+THEN '0'
+WHEN qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; count(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex)', 'int') > 0 
+THEN 	'USE ' + qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/@Database)[1]' , 'varchar(100)') + CHAR(10) + CHAR(13) + 'GO' + CHAR(10) + CHAR(13) 
+	+'CREATE INDEX idx' + CONVERT(nvarchar(8), GETDATE(), 112) + ' ON ' + qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[1]/MissingIndex/@Schema)[1]', 'varchar(100)') + '.' 
+	+ qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/@Table)[1]' , 'varchar(100)') + ' (' 
+	+ CASE
+		WHEN qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/ColumnGroup[@Usage="EQUALITY"]/Column/@Name)') > 0 
+		--AND qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/ColumnGroup[@Usage="INEQUALITY"]/Column/@Name)') < 0
+		THEN replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[1]/MissingIndex/ColumnGroup[@Usage="EQUALITY"]/Column/@Name)') as varchar(max)),'] [','],[') 
+		ELSE ''
+		END
+	+ CASE
+		WHEN qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/ColumnGroup[@Usage="INEQUALITY"]/Column/@Name)') > 0
+		THEN replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[1]/MissingIndex/ColumnGroup[@Usage="INEQUALITY"]/Column/@Name)') as varchar(max)),'][','],[')  
+		ELSE ''
+		END
+	+ ')'
+ 	+ CASE 
+		WHEN qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/ColumnGroup[@Usage="INCLUDE"]/Column/@Name)') > 0 
+		THEN ' INCLUDE (' + replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[1]/MissingIndex/ColumnGroup[@Usage="INCLUDE"]/Column/@Name)') as varchar(max)),'] [','],[') + ')' 
+		ELSE ''
+		END
+	+ ' WITH (FILLFACTOR = 95, ONLINE = ON)'
+END,
+'miss_idx2'= CASE
+WHEN qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; count(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex)', 'int') < 2 
+THEN '0'
+WHEN qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; count(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex)', 'int') > 1 
+THEN 	'USE ' + qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/@Database)[1]' , 'varchar(100)') + CHAR(10) + CHAR(13) + 'GO' + CHAR(10) + CHAR(13) 
+	+'CREATE INDEX idx' + CONVERT(nvarchar(8), GETDATE(), 112) + ' ON ' + qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/@Schema)[1]', 'varchar(100)') + '.' 
+	+ qp.query_plan.value('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/@Table)[1]' , 'varchar(100)') + ' (' 
+	+ CASE
+		WHEN qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/ColumnGroup[@Usage="EQUALITY"]/Column/@Name)') > 0 
+		--AND qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup/MissingIndex/ColumnGroup[@Usage="INEQUALITY"]/Column/@Name)') < 0
+		THEN replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/ColumnGroup[@Usage="EQUALITY"]/Column/@Name)') as varchar(max)),'] [','],[') 
+		ELSE ''
+		END
+	+ CASE
+		WHEN qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/ColumnGroup[@Usage="INEQUALITY"]/Column/@Name)') > 0
+		THEN replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/ColumnGroup[@Usage="INEQUALITY"]/Column/@Name)') as varchar(max)),'][','],[')  
+		ELSE ''
+		END
+	+ ')'
+ 	+ CASE 
+		WHEN qp.query_plan.exist('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; (/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/ColumnGroup[@Usage="INCLUDE"]/Column/@Name)') > 0 
+		THEN ' INCLUDE (' + replace(cast(qp.query_plan.query('declare default element namespace "http://schemas.microsoft.com/sqlserver/2004/07/showplan"; data(/ShowPlanXML/BatchSequence/Batch/Statements/StmtSimple/QueryPlan/MissingIndexes/MissingIndexGroup[2]/MissingIndex/ColumnGroup[@Usage="INCLUDE"]/Column/@Name)') as varchar(max)),'] [','],[') + ')' 
+		ELSE ''
+		END
+	+ ' WITH (FILLFACTOR = 95, ONLINE = ON)'
+END
+, t.objectid, t.encrypted, qs.plan_handle, qs.plan_generation_num 
+FROM sys.dm_exec_query_stats qs CROSS APPLY sys.dm_exec_sql_text(plan_handle) AS t 
+CROSS APPLY sys.dm_exec_query_plan(plan_handle) AS qp 
+--WHERE DB_NAME(t.dbid) = 'CRMInterface' 
+ORDER BY qs.total_logical_reads DESC

@@ -1,0 +1,4 @@
+select *, CAST(query_plan as XML) qplan from  [snapshots].[query_stats] qs
+  LEFT JOIN [snapshots].[notable_query_plan] qp ON qs.plan_handle = qp.plan_handle
+  LEFT JOIN snapshots.notable_query_text qt on qs.sql_handle=qt.sql_handle
+  WHERE qt.sql_text like '%ZCO_BF_CASCADING1%'

@@ -1,0 +1,14 @@
+USE [master]
+RESTORE DATABASE [PAT_171019] FROM  
+DISK = N'W:\remedy_prod_full.bak',  
+DISK = N'W:\remedy_prod_full2.bak',  
+DISK = N'W:\remedy_prod_full3.bak',  
+DISK = N'W:\remedy_prod_full4.bak' 
+WITH  FILE = 1,		MOVE N'Remedy_Prod_01' TO N'K:\SQLDATA\PAT_171019\PAT_171019.mdf',  
+					MOVE N'Remedy_Prod_01_2' TO N'K:\SQLDATA\PAT_171019\PAT_171019_2.ndf',  
+					MOVE N'Remedy_Prod_01_3' TO N'K:\SQLDATA\PAT_171019\PAT_171019_3.ndf',  
+					MOVE N'Remedy_Prod_01_4' TO N'K:\SQLDATA\PAT_171019\PAT_171019_4.ndf',  
+					MOVE N'Remedy_Prod_01_log' TO N'J:\SQLLOG\PAT_171019\PAT_171019_log.ldf',  
+NOUNLOAD,  STATS = 5
+
+GO

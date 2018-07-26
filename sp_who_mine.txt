@@ -1,0 +1,21 @@
+select 'KILL ' + CAST(s.spid as varchar), s.blocked,
+ElapsedTime =
+    CASE WHEN DATEDIFF(S, s.last_batch, GETDATE()) >= 359999
+        THEN
+                          CAST(DATEDIFF(S, s.last_batch, GETDATE()) / 86400        AS VARCHAR(7)) + 'd '
+            + RIGHT('0' + CAST(DATEDIFF(S, s.last_batch, GETDATE()) % 86400 / 3600 AS VARCHAR(2)), 2) + ':'
+            + RIGHT('0' + CAST(DATEDIFF(S, s.last_batch, GETDATE()) %  3600 /   60 AS VARCHAR(2)), 2) + ':'
+            + RIGHT('0' + CAST(DATEDIFF(S, s.last_batch, GETDATE()) %    60        AS VARCHAR(2)), 2)
+        ELSE
+              RIGHT('0' + CAST(DATEDIFF(S, s.last_batch, GETDATE())        / 3600 AS VARCHAR(2)), 2) + ':'
+            + RIGHT('0' + CAST(DATEDIFF(S, s.last_batch, GETDATE()) % 3600 /   60 AS VARCHAR(2)), 2) + ':'
+            + RIGHT('0' + CAST(DATEDIFF(S, s.last_batch, GETDATE()) %   60        AS VARCHAR(2)), 2)
+        END, 
+s.last_batch, s.hostname, s.program_name, DB_NAME(s.dbid) as db_name, s.loginame, s.status, s.cpu, s.memusage, s.physical_io, s.sql_handle, qt.text, s.open_tran
+
+from sys.sysprocesses s 
+cross apply sys.dm_exec_sql_text (s.sql_handle) as qt
+LEFT JOIN sys.dm_exec_requests r
+ON s.spid = r.session_id
+where s.spid > 50 --and host_name = 'KMITSM09'
+order by last_batch asc

@@ -1,0 +1,9 @@
+USE [master]
+GO
+DECLARE @ph_name nvarchar(max)
+set @ph_name = (select '\\kmladm22.bs.kme.intern\backup\' + @@SERVERNAME + '.bak')
+select @ph_name
+/****** Object:  BackupDevice [kmladm22]    Script Date: 23.01.2018 09:24:26 ******/
+EXEC master.dbo.sp_addumpdevice  @devtype = N'disk', @logicalname = N'kmladm22', @physicalname = @ph_name
+GO
+
