@@ -1,5 +1,0 @@
-New-Item -ItemType directory -Path I:\SQLLOG
-New-Item -ItemType directory -Path J:\SQLDATA
-New-Item -ItemType directory -Path J:\BACKUP
-New-Item -ItemType directory -Path T:\TEMPDB
-Z:\setup.exe /Configurationfile=\\kmladm22\f$\ConfigurationFile.ini
